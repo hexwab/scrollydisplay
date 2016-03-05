@@ -175,7 +175,7 @@ void blat_row(uint8_t rowsel, uint8_t *ptr, uint16_t delay) {
      for (n=ROWSIZE; n; n--) {
 	  /* Start transmission */
 	  SPDR = *(ptr++);
-	  //    idle();
+	  idle();
 	  /* Wait for transmission complete */
 	  while(!(SPSR & (1<<SPIF)))
 	       ;
@@ -213,13 +213,21 @@ static inline void inbyte(uint8_t b) {
      static struct sf *sf; /* subframe ptr */
      static uint8_t *ptr; /* data ptr */
      //     fprintf(&USBSerialStream, "in %x, s=%d, left=%d, ptr=%x\n", b, s, left, ptr);
-     
+     static uint16_t missed, total=0;
+     total++;
      switch (s) {
 case 0: if (b==0xa9) {
 	  flip();
 	  s++;
 	  sf = &thatbuf->sf[0];
-     }
+	  if (missed) {
+	    fprintf(&USBSerialStream, "sync %x, total %x\n", missed, total);
+	  }
+	  missed =0;
+	  total =0;
+       } else {
+	 missed++;
+       }
      break;
 case 1:
      if (b && b <= MAXSUBFRAMES) {
@@ -256,7 +264,7 @@ case 20: /* 2 bytes: subframetime, TU */
 case 21:
      sf->time = lo + (b<<8);
      sf++;
-     if (!left--)
+     if (!--left)
 	  s = 0;
      else
 	  s = 4; /* loop */
