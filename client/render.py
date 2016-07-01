@@ -129,10 +129,10 @@ face = create_cairo_font_face_for_file("AngroEF-Bold.otf", 0) # 2 10 9
 #surf = cairo.ImageSurface(cairo.FORMAT_RGB24, 120, 7)
 #ctx = cairo.Context(surf)
 
-#text = subprocess.check_output(['fortune'])
+text = subprocess.check_output(['fortune'])
 text = "Pack my box with five dozen liquor jugs QWERTY 1234547890 ():{}"
 
-speed = 5
+speed = 24
 x = -120/speed
 
 def drawtext(ctx):
@@ -140,20 +140,29 @@ def drawtext(ctx):
     scale = 16
     scsurf = cairo.ImageSurface(cairo.FORMAT_RGB24, 120*scale, 7)
     scctx = cairo.Context(scsurf)
-    global x
+    global x, text
     scctx.set_source_rgb(1, 1, 1)
     
-    scctx.translate(-x*speed,2)
+    scctx.translate(-x,2)
+    fo = cairo.FontOptions()
+    fo.set_hint_metrics(cairo.HINT_STYLE_FULL)
+    fo.set_hint_style(cairo.HINT_METRICS_OFF)
+    fo.set_antialias(cairo.ANTIALIAS_NONE)
+    scctx.set_font_options(fo)
+
+#    scctx.set_antialias(cairo.ANTIALIAS_NONE)
     scctx.set_font_face(face)
     scctx.scale(scale,1)
     scctx.set_font_matrix(cairo.Matrix(xx=10,yy=9))
     scctx.move_to(0, 4)
     scctx.show_text(text)
-
+    adv = scctx.text_extents(text)[4] # x_advance
+    #print adv,x*speed
     ctx.set_source_surface(scsurf, 0, 0)
 
     ctx.get_source().set_matrix(cairo.Matrix(xx=scale,yy=1))
     ctx.paint()
-    x = x + 1
-    if x > 500:
-        x = -50
+    x = x + speed
+    if x > adv*scale:
+        x = -120*scale
+        text = subprocess.check_output(['fortune'])

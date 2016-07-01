@@ -23,7 +23,8 @@ LUFA_PATH    = ../../LUFA
 CC_FLAGS     = -DUSE_LUFA_CONFIG_HEADER -I. -O3 #-DSUB_DEVICE_ONLY -DUSE_FLASH_DESCRIPTORS -DUSE_STATIC_OPTIONS
 LD_FLAGS     = 
 AVRDUDE = avrdude $(PROGRAMMER) -p $(MCU)
-PROGRAMMER = -c avr109 -P /dev/ttyACM0
+#PROGRAMMER = -c avr109 -P /dev/ttyACM0
+PROGRAMMER = -c jtagmkII -P usb
 EXEC = $(TARGET).hex
 # Default target
 all:

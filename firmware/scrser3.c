@@ -73,7 +73,7 @@ struct {
      {1,0}, {1,1}, {1,2}, {1,3}, {1,4}, {1,5}, {1,6}, {1,7}, // portb
      {2,6}, {2,7}, // portc
      {3,0}, {3,1}, {3,2}, {3,3}, {3,4}, {3,5}, {3,6}, {3,7}, // portd
-     /*{4,2},*/ {4,6}, // porte
+     {4,2}, {4,6}, // porte
      {5,0}, {5,1}, {5,4}, {5,5}, {5,6}, {5,7}, // portf
 };
 
@@ -153,19 +153,41 @@ void delay_tu(uint16_t t) {
      int16_t togo;
      do {
 	  togo = t - TCNT1;
-	  if (togo > 50) 
+	  if (togo > 20) 
 	       idle();
 	  /* nothing */
      } while (togo > 0);
 }
 
-char datapin = 'c';
-char clockpin = 'b';
-char resetpin = 'g';
-char rowpins[] = "klmnvwx";
+/*
+  Outputs
+  PC6 i: LED1
+  PB6 g: LED2
+  PB5 f: LED3
+  PD0-6 k-q: row
+  PD7 r: rst
+  PB1 b: clk
+  PB2 c: data
+  PE2 s: enable
+  PC7 j: magic
+
+  Inputs
+  button: PB4
+  
+ */
+
+const char datapin = 'c';
+const char clockpin = 'b';
+const char resetpin = 'r';
+const char enablepin = 's';
+const char magicpin = 'j';
+const char rowpins[] = "klmnopq";
+const char ledpins[]= "igf";
+const char buttonpin = 'e';
+const char powerpin = 'u';
 
 static inline void setrow(int rowsel) {
-     PORTD = PORTF = rowsel;
+  PORTD = rowsel | 0x80;
 }
 
 void blat_row(uint8_t rowsel, uint8_t *ptr, uint16_t delay) {
@@ -175,7 +197,7 @@ void blat_row(uint8_t rowsel, uint8_t *ptr, uint16_t delay) {
      for (n=ROWSIZE; n; n--) {
 	  /* Start transmission */
 	  SPDR = *(ptr++);
-	  idle();
+	  //idle();
 	  /* Wait for transmission complete */
 	  while(!(SPSR & (1<<SPIF)))
 	       ;
@@ -199,7 +221,11 @@ void SPI_MasterInit(void)
      // 2MHz
      SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
      SPSR |= 1 <<SPI2X; // 2x speed
-#else
+#endif
+     // 8MHz
+     SPCR = (1<<SPE)|(1<<MSTR)|(0<<SPR0);
+     SPSR |= 1 <<SPI2X; // 2x speed
+#if 0
      // 4MHz
      SPCR = (1<<SPE)|(1<<MSTR)|(0<<SPR0);
      SPSR &= ~(1 <<SPI2X); // !2x speed
@@ -215,13 +241,18 @@ static inline void inbyte(uint8_t b) {
      //     fprintf(&USBSerialStream, "in %x, s=%d, left=%d, ptr=%x\n", b, s, left, ptr);
      static uint16_t missed, total=0;
      total++;
+     /* if (b != (total & 255)) { fprintf(&USBSerialStream, "exp %x got=%x\n", total, b); total=0;} */
+     /* else if (!b) { fprintf(&USBSerialStream, "tot %x\n", total); } */
+     /* return; */
+     //     if (!(total & 255)) fprintf(&USBSerialStream, "in %x, total=%x\n", b, total);
+     //     return;
      switch (s) {
 case 0: if (b==0xa9) {
 	  flip();
 	  s++;
 	  sf = &thatbuf->sf[0];
 	  if (missed) {
-	    fprintf(&USBSerialStream, "sync %x, total %x\n", missed, total);
+	    fprintf(&USBSerialStream, "sync %x, total %x\r\n", missed, total);
 	  }
 	  missed =0;
 	  total =0;
@@ -288,8 +319,8 @@ void initbuf(struct buf *buf) {
      for (i=0; i<MAXSUBFRAMES; i++) {
 	  buf->sf[i].time = 500;
 	  buf->sf[i].rowsel = 1<<(i % 7);
-	  memset(buf->sf[i].data, 0x0, ROWSIZE);
-	  memcpy_P(buf->sf[i].data,logo+i*6,6);
+	  memset(buf->sf[i].data, 0x55, ROWSIZE);
+	  //	  memcpy_P(buf->sf[i].data,logo+i*6,6);
      }
 }
 
@@ -300,11 +331,24 @@ void dispinit(void) {
      reg_dir (datapin-'a', 1);
      reg_dir (clockpin-'a', 1);
      reg_dir (resetpin-'a', 1);
+     reg_dir (enablepin-'a', 1);
+     reg_dir (powerpin-'a', 1);
+     reg_dir (magicpin-'a', 0);
+     reg_dir (buttonpin-'a', 0);
+     reg_write (powerpin-'a', 1);
+
+     for (i=0; i<3; i++) {
+       reg_dir (ledpins[i]-'a', 1);
+       reg_write(ledpins[i]-'a', 1);
+     }
+     
      for (i=0; i<NROWS; i++) {
 	  reg_dir (rowpins[i]-'a', 1);
 	  reg_write(rowpins[i]-'a', 0);
      }
      reg_write(resetpin-'a', 1);
+     reg_write(enablepin-'a', 1);
+     //     reg_write(magicpin-'a', 0);
      //PORTB |= 1<<6; // pull reset high
 
      //  memset(framebuf, 0x55, FRAMESIZE*FRAMES);
@@ -314,6 +358,7 @@ void dispinit(void) {
 }
 
 void idle() {
+#if 0
      int16_t len = CDC_Device_BytesReceived (&VirtualSerial_CDC_Interface);
      while (len--) {
 	  inbyte(CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface));
@@ -322,17 +367,21 @@ void idle() {
 
      CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
      USB_USBTask();
+#endif
 }  
 
 void draw(void) {
      uint8_t i;
      struct buf *buf = thisbuf;
-
+     reg_write(ledpins[0]-'a', 1);
+     
      for (i=0; i<buf->nsf; i++) {
 	  struct sf *sf = &buf->sf[i];
 	  blat_row(sf->rowsel, sf->data, sf->time);
 	  idle();
      }
+     reg_write(ledpins[0]-'a', 0);
+     //fprintf(&USBSerialStream, "sync %x, total %x\r\n", missed, total);
 }
 
 /** Main program entry point. This routine contains the overall program flow, including initial

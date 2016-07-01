@@ -20,13 +20,13 @@ def life_step_2(X):
 life_step = life_step_1
 
 
-np.random.seed(0)
+#np.random.seed(0)
 X = np.zeros((7, 120), dtype=bool)
-#r = np.random.random((7, 120))
-#X[:] = (r > 0.75)
-glider = [[True, True, True], [False, False, True], [False, True, False]]
-X[3:6,60:63] = glider
-X[0:3,40:43] = glider
+r = np.random.random((7, 120))
+X[:] = (r > 0.75)
+#glider = [[True, True, True], [False, False, True], [False, True, False]]
+#X[3:6,60:63] = glider
+#X[0:3,40:43] = glider
 
 while True:
     os.write(sys.stdout.fileno(), struct.pack("<BBH",0xa9,7,500))
